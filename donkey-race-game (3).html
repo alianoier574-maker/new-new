@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🫏 مسابقه خرها</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+:root {
+  --bg:#0d0d14;
+  --surface:#151520;
+  --card:#1c1c2e;
+  --border:#2a2a42;
+  --accent:#7c6bff;
+  --accent2:#ff6b6b;
+  --text:#eeeeff;
+  --muted:#8888aa;
+  --gold:#ffd700;
+  --silver:#c0c0d0;
+  --bronze:#cd7f32;
+  --grass1:#1a3a1a;
+  --grass2:#1f4a1f;
+  --track:#2a1f14;
+  --dirt1:#3a2810;
+  --dirt2:#4a3418;
+  --fence:#8b6914;
+  --crowd1:#1a1a2e;
+  --crowd2:#16213e;
+}
+
+html, body {
+  width:100%; height:100%; overflow:hidden;
+  background:var(--bg);
+  font-family:'Segoe UI',Tahoma,sans-serif;
+  color:var(--text);
+  touch-action:none;
+}
+
+/* ── SCREENS ── */
+.screen {
+  position:fixed; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:24px; gap:16px;
+  z-index:200;
+  background:var(--bg);
+  transition:opacity .3s, transform .3s;
+}
+.screen.out { opacity:0; pointer-events:none; transform:scale(.96); }
+
+/* JOIN SCREEN */
+#join-screen h1 { font-size:32px; font-weight:900; letter-spacing:-1px; }
+#join-screen h1 span { color:var(--accent); }
+#join-screen p { color:var(--muted); font-size:14px; text-align:center; line-height:1.7; }
+
+.field-label { font-size:12px; color:var(--muted); margin-bottom:4px; align-self:flex-start; }
+
+input[type=text] {
+  width:100%; max-width:320px;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:14px; padding:14px 16px;
+  font-size:16px; color:var(--text); outline:none;
+  transition:border-color .2s;
+}
+input[type=text]:focus { border-color:var(--accent); }
+
+.skin-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:10px; width:100%; max-width:320px;
+}
+.skin-card {
+  background:var(--card); border:2px solid var(--border);
+  border-radius:16px; padding:12px 8px;
+  text-align:center; cursor:pointer;
+  transition:border-color .15s, transform .1s;
+}
+.skin-card:active { transform:scale(.95); }
+.skin-card.selected { border-color:var(--accent); background:#1e1a3a; }
+.skin-card .skin-emoji { font-size:28px; display:block; }
+.skin-card .skin-name { font-size:11px; color:var(--muted); margin-top:4px; }
+.skin-card.selected .skin-name { color:var(--accent); }
+
+.btn {
+  width:100%; max-width:320px;
+  background:var(--accent); color:#fff;
+  border:none; border-radius:16px;
+  padding:16px; font-size:17px; font-weight:700;
+  cursor:pointer; transition:transform .1s, background .1s;
+  letter-spacing:-.3px;
+}
+.btn:active { transform:scale(.97); background:#6355e0; }
+.btn.secondary {
+  background:var(--card); color:var(--text);
+  border:1px solid var(--border);
+}
+.btn.secondary:active { background:var(--border); }
+
+/* LOBBY SCREEN */
+#lobby-screen { gap:12px; }
+#lobby-screen h2 { font-size:22px; font-weight:800; }
+#lobby-screen h2 span { color:var(--accent); }
+.lobby-players {
+  width:100%; max-width:380px;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:18px; overflow:hidden;
+}
+.lobby-player {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px; border-bottom:1px solid var(--border);
+}
+.lobby-player:last-child { border-bottom:none; }
+.lobby-player .p-emoji { font-size:24px; }
+.lobby-player .p-info { flex:1; }
+.lobby-player .p-name { font-size:14px; font-weight:600; }
+.lobby-player .p-skin { font-size:11px; color:var(--muted); }
+.lobby-player .you-tag {
+  font-size:10px; background:var(--accent)22; color:var(--accent);
+  border-radius:8px; padding:2px 7px; margin-right:6px;
+}
+#lobby-count { font-size:13px; color:var(--muted); }
+
+/* ── GAME CANVAS AREA ── */
+#game-area {
+  position:fixed; inset:0;
+  display:none;
+  flex-direction:column;
+}
+
+/* TOP HUD */
+#hud {
+  position:absolute; top:0; left:0; right:0;
+  z-index:50; padding:10px 14px;
+  display:flex; align-items:center; justify-content:space-between;
+  background:linear-gradient(to bottom, rgba(13,13,20,.9) 0%, transparent 100%);
+}
+#hud .hud-title { font-size:15px; font-weight:700; }
+#hud .hud-right { display:flex; gap:8px; }
+.hud-badge {
+  background:rgba(28,28,46,.8); backdrop-filter:blur(4px);
+  border:1px solid var(--border); border-radius:20px;
+  padding:4px 12px; font-size:12px; color:var(--muted);
+}
+.hud-badge b { color:var(--text); }
+
+/* CANVAS */
+#canvas {
+  width:100%; height:100%;
+  display:block;
+}
+
+/* COUNTDOWN OVERLAY */
+#countdown-overlay {
+  position:absolute; inset:0; z-index:100;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:rgba(13,13,20,.7); backdrop-filter:blur(2px);
+  pointer-events:none; opacity:0; transition:opacity .3s;
+}
+#countdown-overlay.show { opacity:1; }
+#countdown-num {
+  font-size:100px; font-weight:900; color:var(--accent);
+  line-height:1; text-shadow:0 0 40px var(--accent)66;
+  animation:popIn .35s ease-out;
+}
+@keyframes popIn {
+  from { transform:scale(1.8); opacity:0; }
+  to   { transform:scale(1); opacity:1; }
+}
+#countdown-label { font-size:18px; color:var(--muted); margin-top:8px; }
+
+/* SWIPE HINT */
+#swipe-hint {
+  position:absolute; bottom:100px; left:50%; transform:translateX(-50%);
+  z-index:60; background:rgba(28,28,46,.85); backdrop-filter:blur(6px);
+  border:1px solid var(--border); border-radius:20px;
+  padding:10px 20px; font-size:13px; color:var(--muted);
+  pointer-events:none; transition:opacity .5s;
+  white-space:nowrap;
+}
+
+/* FINISH BANNER */
+#finish-banner {
+  position:absolute; top:80px; left:50%; transform:translateX(-50%);
+  z-index:80; opacity:0; transition:opacity .4s;
+  text-align:center; pointer-events:none;
+}
+#finish-banner.show { opacity:1; }
+#finish-banner .fb-inner {
+  background:rgba(28,28,46,.95); backdrop-filter:blur(8px);
+  border:1px solid var(--border); border-radius:20px;
+  padding:14px 24px;
+}
+#finish-banner .fb-rank { font-size:36px; }
+#finish-banner .fb-label { font-size:16px; font-weight:700; margin-top:4px; }
+#finish-banner .fb-coins { font-size:13px; color:var(--gold); margin-top:4px; }
+
+/* RESULTS SCREEN */
+#results-screen { gap:12px; }
+#results-screen .res-title { font-size:28px; font-weight:900; text-align:center; }
+.results-list {
+  width:100%; max-width:380px;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:18px; overflow:hidden;
+}
+.res-row {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px; border-bottom:1px solid var(--border);
+}
+.res-row:last-child { border-bottom:none; }
+.res-row.me { background:rgba(124,107,255,.08); }
+.res-rank-icon { font-size:22px; min-width:28px; text-align:center; }
+.res-info { flex:1; }
+.res-name { font-size:14px; font-weight:600; }
+.res-prize { font-size:12px; color:var(--muted); margin-top:2px; }
+.res-coins { font-size:13px; color:var(--gold); font-weight:700; }
+
+/* swipe ripple */
+.ripple-ring {
+  position:absolute; border-radius:50%;
+  border:2px solid rgba(124,107,255,.5);
+  pointer-events:none; animation:rippleAnim .6s ease-out forwards;
+}
+@keyframes rippleAnim {
+  from { transform:translate(-50%,-50%) scale(0); opacity:1; }
+  to   { transform:translate(-50%,-50%) scale(3); opacity:0; }
+}
+</style>
+</head>
+<body>
+
+<!-- JOIN SCREEN -->
+<div class="screen" id="join-screen">
+  <div style="font-size:64px;animation:float 2s ease-in-out infinite alternate">🫏</div>
+  <h1>مسابقه <span>خرها</span></h1>
+  <p>سوایپ چپ/راست کن تا خرت بدوئه<br>با دوستات روی همون لینک وارد شو</p>
+
+  <label class="field-label">اسمت چیه؟</label>
+  <input type="text" id="name-input" placeholder="اسم خودت رو بنویس..." maxlength="16">
+
+  <label class="field-label" style="margin-top:8px">اسکین خرت رو انتخاب کن</label>
+  <div class="skin-grid" id="skin-grid"></div>
+
+  <button class="btn" onclick="joinGame()" style="margin-top:8px">ورود به بازی 🏁</button>
+</div>
+
+<!-- LOBBY SCREEN -->
+<div class="screen out" id="lobby-screen">
+  <div style="font-size:48px">🏟️</div>
+  <h2>سالن انتظار <span id="room-id-label"></span></h2>
+  <p id="lobby-count" style="color:var(--muted);font-size:13px">در حال اتصال...</p>
+
+  <div class="lobby-players" id="lobby-players-list"></div>
+
+  <button class="btn" id="ready-btn" onclick="sendReady()">شروع مسابقه! 🚀</button>
+  <p style="font-size:12px;color:var(--muted);text-align:center">وقتی همه آماده شدن، یه نفر دکمه رو بزنه</p>
+</div>
+
+<!-- GAME AREA -->
+<div id="game-area">
+  <canvas id="canvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-title">🫏 مسابقه</div>
+    <div class="hud-right">
+      <div class="hud-badge">سوایپ: <b id="hud-swipes">0</b></div>
+      <div class="hud-badge">رتبه: <b id="hud-rank">–</b></div>
+    </div>
+  </div>
+
+  <div id="countdown-overlay">
+    <div id="countdown-num">3</div>
+    <div id="countdown-label">آماده باش!</div>
+  </div>
+
+  <div id="swipe-hint">← سوایپ کن →</div>
+
+  <div id="finish-banner">
+    <div class="fb-inner">
+      <div id="fb-rank" class="fb-rank">🏆</div>
+      <div id="fb-label" class="fb-label"></div>
+      <div id="fb-coins" class="fb-coins"></div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div class="screen out" id="results-screen">
+  <div id="res-my-emoji" style="font-size:64px"></div>
+  <div class="res-title" id="res-title">نتایج مسابقه</div>
+  <div class="results-list" id="results-list"></div>
+  <button class="btn" onclick="sendRematch()">دوباره بازی 🔄</button>
+</div>
+
+<style>
+@keyframes float {
+  from{transform:translateY(0)}
+  to{transform:translateY(-12px)}
+}
+</style>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const WS_URL = `ws://${location.host}`;
+const TRACK_LENGTH = 100;
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let ws = null;
+let myId = null;
+let myName = '';
+let mySkinId = 'classic';
+let roomId = null;
+let gamePhase = 'join'; // join|lobby|countdown|racing|finished
+let players = {};       // id -> player
+let swipeCount = 0;
+let hintVisible = true;
+let hintTimer = null;
+
+// skins loaded from server
+let SKINS = [
+  {id:'classic',emoji:'🫏',name:'کلاسیک',color:'#7c6bff'},
+  {id:'swift',emoji:'🐴',name:'تندرو',color:'#ff6b6b'},
+  {id:'wild',emoji:'🦓',name:'وحشی',color:'#6bffb8'},
+  {id:'golden',emoji:'🌟',name:'طلایی',color:'#ffd700'},
+  {id:'shadow',emoji:'🖤',name:'سایه',color:'#9b59b6'},
+  {id:'fire',emoji:'🔥',name:'آتشین',color:'#ff4500'},
+];
+
+// ─── Skin Picker ─────────────────────────────────────────────────────────────
+function buildSkinGrid(skins) {
+  SKINS = skins || SKINS;
+  const grid = document.getElementById('skin-grid');
+  grid.innerHTML = '';
+  SKINS.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'skin-card' + (s.id === mySkinId ? ' selected' : '');
+    card.dataset.id = s.id;
+    card.innerHTML = `<span class="skin-emoji">${s.emoji}</span><span class="skin-name">${s.name}</span>`;
+    card.onclick = () => {
+      mySkinId = s.id;
+      document.querySelectorAll('.skin-card').forEach(c => c.classList.toggle('selected', c.dataset.id === mySkinId));
+    };
+    grid.appendChild(card);
+  });
+}
+buildSkinGrid(SKINS);
+
+// ─── WebSocket ────────────────────────────────────────────────────────────────
+function connect(name, skinId) {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type:'join', name, skinId, roomId: getQueryParam('room') || 'main' }));
+  };
+  ws.onmessage = e => handleMsg(JSON.parse(e.data));
+  ws.onclose = () => { setTimeout(()=>location.reload(), 2000); };
+  ws.onerror = () => {};
+}
+
+function send(obj) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
+
+function getQueryParam(k) {
+  return new URLSearchParams(location.search).get(k);
+}
+
+// ─── Message Handler ──────────────────────────────────────────────────────────
+function handleMsg(msg) {
+  switch(msg.type) {
+
+    case 'joined':
+      myId = msg.playerId;
+      roomId = msg.roomId;
+      buildSkinGrid(msg.skins);
+      // Update URL with room
+      history.replaceState(null,'',`?room=${roomId}`);
+      document.getElementById('room-id-label').textContent = `#${roomId}`;
+      updateLobbyPlayers(msg.players);
+      showScreen('lobby-screen');
+      break;
+
+    case 'playerJoined':
+    case 'lobby':
+      updateLobbyPlayers(msg.players);
+      break;
+
+    case 'playerLeft':
+      updateLobbyPlayers(msg.players);
+      break;
+
+    case 'phase':
+      gamePhase = msg.phase;
+      if (msg.phase === 'countdown') {
+        showGameArea();
+      }
+      if (msg.phase === 'racing') {
+        document.getElementById('countdown-overlay').classList.remove('show');
+        startHintTimer();
+      }
+      if (msg.phase === 'finished') {
+        showResults(msg.results);
+      }
+      if (msg.phase === 'lobby') {
+        players = {};
+        showScreen('lobby-screen');
+        updateLobbyPlayers(msg.players || []);
+        document.getElementById('finish-banner').classList.remove('show');
+      }
+      break;
+
+    case 'countdown':
+      showCountdown(msg.n);
+      break;
+
+    case 'state':
+      updatePlayers(msg.players);
+      break;
+
+    case 'finish':
+      if (msg.playerId === myId) {
+        showFinishBanner(msg.prize, msg.rank);
+      }
+      break;
+  }
+}
+
+// ─── UI Helpers ───────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('out'));
+  document.getElementById('game-area').style.display = 'none';
+  if (id) {
+    document.getElementById(id).classList.remove('out');
+  }
+}
+
+function showGameArea() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('out'));
+  document.getElementById('game-area').style.display = 'flex';
+  initCanvas();
+  document.getElementById('countdown-overlay').classList.add('show');
+}
+
+function showCountdown(n) {
+  const el = document.getElementById('countdown-num');
+  const label = document.getElementById('countdown-label');
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = 'popIn .35s ease-out';
+  if (n > 0) { el.textContent = n; label.textContent = 'آماده باش!'; }
+  else { el.textContent = '🫏'; label.textContent = 'يلّا!'; }
+}
+
+function updateLobbyPlayers(list) {
+  const container = document.getElementById('lobby-players-list');
+  container.innerHTML = '';
+  list.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'lobby-player';
+    row.innerHTML = `
+      <div class="p-emoji">${p.skin?.emoji || '🫏'}</div>
+      <div class="p-info">
+        <div class="p-name">${p.id === myId ? '<span class="you-tag">تو</span>' : ''}${esc(p.name)}</div>
+        <div class="p-skin">${p.skin?.name || ''}</div>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+  document.getElementById('lobby-count').textContent = `${list.length} بازیکن در اتاق`;
+}
+
+function updatePlayers(list) {
+  list.forEach(p => { players[p.id] = p; });
+  // update HUD
+  const me = players[myId];
+  if (me) {
+    swipeCount = swipeCount; // keep local
+    // rank
+    const finished = list.filter(p => p.finished).sort((a,b) => a.rank - b.rank);
+    const notFinished = list.filter(p => !p.finished).sort((a,b) => b.position - a.position);
+    const ordered = [...finished, ...notFinished];
+    const myRankIdx = ordered.findIndex(p => p.id === myId);
+    document.getElementById('hud-rank').textContent = myRankIdx >= 0 ? myRankIdx+1 : '–';
+  }
+}
+
+function showFinishBanner(prize, rank) {
+  document.getElementById('fb-rank').textContent = prize.icon;
+  document.getElementById('fb-label').textContent = prize.label;
+  document.getElementById('fb-coins').textContent = `+${prize.coins} سکه 🪙`;
+  document.getElementById('finish-banner').classList.add('show');
+}
+
+function showResults(results) {
+  if (!results) return;
+  const me = results.find(r => r.id === myId);
+  document.getElementById('res-my-emoji').textContent = me?.prize?.icon || '🏁';
+  document.getElementById('res-title').textContent = me?.prize?.label || 'نتایج';
+
+  const list = document.getElementById('results-list');
+  list.innerHTML = '';
+  results.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'res-row' + (r.id === myId ? ' me' : '');
+    row.innerHTML = `
+      <div class="res-rank-icon">${r.prize?.icon || r.rank}</div>
+      <div class="res-info">
+        <div class="res-name">${r.id === myId ? '<span class="you-tag">تو</span>' : ''}${esc(r.name)} ${r.skin?.emoji || ''}</div>
+        <div class="res-prize">${r.prize?.label || ''}</div>
+      </div>
+      <div class="res-coins">+${r.coins} 🪙</div>
+    `;
+    list.appendChild(row);
+  });
+
+  setTimeout(() => showScreen('results-screen'), 800);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Join ─────────────────────────────────────────────────────────────────────
+function joinGame() {
+  const name = document.getElementById('name-input').value.trim() || 'ناشناس';
+  myName = name;
+  connect(name, mySkinId);
+}
+
+function sendReady() { send({ type:'ready' }); }
+function sendRematch() { send({ type:'rematch' }); }
+
+document.getElementById('name-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') joinGame();
+});
+
+// ─── Canvas / Track Renderer ──────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let raf = null;
+let cameraY = 0; // vertical camera offset
+let frameCount = 0;
+
+function initCanvas() {
+  resizeCanvas();
+  if (!raf) raf = requestAnimationFrame(renderLoop);
+}
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth * devicePixelRatio;
+  canvas.height = window.innerHeight * devicePixelRatio;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+
+window.addEventListener('resize', () => { if (raf) resizeCanvas(); });
+
+function renderLoop() {
+  frameCount++;
+  render();
+  raf = requestAnimationFrame(renderLoop);
+}
+
+// ── Draw Scene ────────────────────────────────────────────────────────────────
+function render() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  const playerList = Object.values(players);
+  const numLanes = Math.max(playerList.length, 1);
+
+  // Track is horizontal: players run left-to-right
+  // Layout: top=sky/crowd, bottom=ground
+  // Track area: center of screen
+
+  const LANE_H = Math.min(Math.floor((H * 0.72) / numLanes), 90);
+  const TRACK_TOP = H * 0.12;
+  const TRACK_W = W * 0.82;
+  const TRACK_LEFT = W * 0.09;
+
+  // Sky / Crowd backdrop
+  drawCrowd(ctx, W, H, TRACK_TOP);
+
+  // Ground below track
+  drawGround(ctx, W, H, TRACK_TOP + LANE_H * numLanes);
+
+  // Draw lanes
+  playerList.forEach((p, i) => {
+    const laneY = TRACK_TOP + i * LANE_H;
+    drawLane(ctx, p, i, laneY, LANE_H, TRACK_LEFT, TRACK_W, numLanes);
+  });
+
+  // Finish line
+  drawFinishLine(ctx, TRACK_LEFT + TRACK_W, TRACK_TOP, LANE_H * numLanes);
+
+  // Start line
+  drawStartLine(ctx, TRACK_LEFT, TRACK_TOP, LANE_H * numLanes);
+}
+
+function drawCrowd(ctx, W, H, trackTop) {
+  // Sky
+  ctx.fillStyle = '#0a0a18';
+  ctx.fillRect(0, 0, W, trackTop);
+
+  // Stands
+  ctx.fillStyle = '#13132a';
+  ctx.fillRect(0, trackTop * 0.3, W, trackTop * 0.7);
+
+  // Crowd dots (animated)
+  for (let i = 0; i < 40; i++) {
+    const x = (i * 73 + frameCount * 0.3) % W;
+    const y = trackTop * 0.35 + (i % 5) * 10 + Math.sin(frameCount * 0.05 + i) * 2;
+    const colors = ['#ff6b6b','#6bffb8','#7c6bff','#ffd700','#ff6bdc'];
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Banner
+  ctx.fillStyle = '#7c6bff22';
+  ctx.fillRect(0, trackTop * 0.15, W, 18);
+  ctx.fillStyle = '#7c6bff';
+  ctx.font = `bold ${Math.min(12, W*0.025)}px Segoe UI`;
+  ctx.textAlign = 'center';
+  ctx.fillText('🫏  مسابقه خرها  🫏', W/2, trackTop * 0.15 + 13);
+}
+
+function drawGround(ctx, W, H, groundTop) {
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, groundTop, W, H - groundTop);
+
+  // grass stripe
+  ctx.fillStyle = '#162416';
+  ctx.fillRect(0, groundTop, W, 8);
+}
+
+function drawLane(ctx, player, idx, laneY, laneH, trackLeft, trackW, total) {
+  const isMe = player.id === myId;
+
+  // lane background - alternating dirt
+  ctx.fillStyle = idx % 2 === 0 ? '#2d1e0f' : '#271a0d';
+  ctx.fillRect(trackLeft, laneY, trackW, laneH);
+
+  // lane separator
+  ctx.strokeStyle = '#3a2a14';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(trackLeft, laneY); ctx.lineTo(trackLeft + trackW, laneY);
+  ctx.stroke();
+
+  // lane highlight for player
+  if (isMe) {
+    ctx.fillStyle = 'rgba(124,107,255,0.08)';
+    ctx.fillRect(trackLeft, laneY, trackW, laneH);
+    ctx.strokeStyle = 'rgba(124,107,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(trackLeft + 0.75, laneY + 0.75, trackW - 1.5, laneH - 1.5);
+  }
+
+  // dust track lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let lx = trackLeft; lx < trackLeft + trackW; lx += 30) {
+    ctx.beginPath(); ctx.moveTo(lx, laneY + 4); ctx.lineTo(lx, laneY + laneH - 4);
+    ctx.stroke();
+  }
+
+  // progress bar at bottom of lane
+  const progH = 3;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(trackLeft + 4, laneY + laneH - progH - 2, trackW - 8, progH);
+  ctx.fillStyle = player.skin?.color || '#7c6bff';
+  ctx.fillRect(trackLeft + 4, laneY + laneH - progH - 2, (trackW - 8) * (player.position / TRACK_LENGTH), progH);
+
+  // donkey position
+  const donkeyX = trackLeft + 20 + (trackW - 40) * (player.position / TRACK_LENGTH);
+  const donkeyY = laneY + laneH * 0.5;
+  const emoji = player.skin?.emoji || '🫏';
+  const fontSize = Math.min(Math.max(laneH * 0.62, 22), 42);
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(donkeyX + fontSize*0.2, donkeyY + fontSize*0.3, fontSize*0.35, fontSize*0.1, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // bounce animation while running
+  let bobY = 0;
+  if (!player.finished && gamePhase === 'racing') {
+    bobY = Math.sin(frameCount * 0.35 + idx * 1.5) * (fontSize * 0.07);
+  }
+
+  ctx.font = `${fontSize}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, donkeyX, donkeyY + bobY);
+
+  // name label
+  const nameSize = Math.min(11, laneH * 0.16);
+  ctx.font = `500 ${nameSize}px Segoe UI`;
+  ctx.fillStyle = isMe ? 'rgba(180,170,255,0.9)' : 'rgba(180,180,200,0.6)';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  const nameX = trackLeft - 6;
+  ctx.fillText(player.name?.slice(0, 8) || '', nameX, donkeyY);
+
+  // rank badge if finished
+  if (player.finished && player.rank) {
+    const rankColors = ['#ffd700','#c0c0d0','#cd7f32','#666','#666','#666'];
+    const badgeX = trackLeft + trackW + 24;
+    const badgeR = laneH * 0.3;
+    ctx.fillStyle = rankColors[Math.min(player.rank - 1, rankColors.length - 1)];
+    ctx.beginPath(); ctx.arc(badgeX, donkeyY, badgeR, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = player.rank <= 3 ? '#000' : '#fff';
+    ctx.font = `bold ${badgeR * 1.1}px Segoe UI`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(player.rank, badgeX, donkeyY);
+  }
+
+  // dust particles if running fast
+  if (!player.finished && gamePhase === 'racing' && isMe) {
+    for (let d = 0; d < 3; d++) {
+      const dx = donkeyX - 20 - d * 12 + Math.sin(frameCount + d) * 4;
+      const dy = donkeyY + 10 + d * 3 + Math.cos(frameCount * 1.3 + d) * 3;
+      ctx.fillStyle = `rgba(180,140,80,${0.25 - d * 0.07})`;
+      ctx.beginPath(); ctx.arc(dx, dy, 3 - d * 0.8, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+function drawFinishLine(ctx, x, topY, totalH) {
+  // checkered finish line
+  const tileH = 12;
+  const lineW = 10;
+  for (let ty = 0; ty < totalH; ty += tileH) {
+    for (let col = 0; col < 2; col++) {
+      ctx.fillStyle = (Math.floor(ty / tileH) + col) % 2 === 0 ? '#fff' : '#000';
+      ctx.fillRect(x + col * (lineW/2), topY + ty, lineW/2, Math.min(tileH, totalH - ty));
+    }
+  }
+  ctx.fillStyle = '#ffd70066';
+  ctx.fillRect(x + lineW, topY, 2, totalH);
+
+  ctx.font = '16px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('🏁', x + lineW/2, topY - 12);
+}
+
+function drawStartLine(ctx, x, topY, totalH) {
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(x, topY); ctx.lineTo(x, topY + totalH);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ─── Swipe Detection ──────────────────────────────────────────────────────────
+let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+const SWIPE_THRESHOLD = 30;
+
+document.addEventListener('touchstart', e => {
+  if (gamePhase !== 'racing') return;
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  touchStartTime = Date.now();
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  if (gamePhase !== 'racing') return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  const dt = Date.now() - touchStartTime;
+
+  if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) {
+    // tap also counts
+    registerSwipe(dx >= 0 ? 'right' : 'left', t.clientX, t.clientY);
+    return;
+  }
+
+  if (Math.abs(dx) > Math.abs(dy) * 0.5) {
+    registerSwipe(dx > 0 ? 'right' : 'left', t.clientX, t.clientY);
+  }
+}, { passive: true });
+
+// Mouse swipe for desktop testing
+let mouseDown = false, mouseStartX = 0;
+document.addEventListener('mousedown', e => {
+  if (gamePhase !== 'racing') return;
+  mouseDown = true; mouseStartX = e.clientX;
+});
+document.addEventListener('mouseup', e => {
+  if (!mouseDown) return;
+  mouseDown = false;
+  const dx = e.clientX - mouseStartX;
+  if (Math.abs(dx) > 15) registerSwipe(dx > 0 ? 'right' : 'left', e.clientX, e.clientY);
+  else registerSwipe('right', e.clientX, e.clientY); // tap
+});
+
+function registerSwipe(direction, cx, cy) {
+  send({ type:'swipe', direction });
+  swipeCount++;
+  document.getElementById('hud-swipes').textContent = swipeCount;
+
+  if (hintVisible) {
+    hintVisible = false;
+    document.getElementById('swipe-hint').style.opacity = '0';
+  }
+
+  // ripple effect on canvas
+  const ring = document.createElement('div');
+  ring.className = 'ripple-ring';
+  ring.style.cssText = `left:${cx}px;top:${cy}px;width:60px;height:60px;position:fixed;pointer-events:none;z-index:999`;
+  document.body.appendChild(ring);
+  ring.addEventListener('animationend', () => ring.remove());
+}
+
+function startHintTimer() {
+  hintVisible = true;
+  document.getElementById('swipe-hint').style.opacity = '1';
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => {
+    document.getElementById('swipe-hint').style.opacity = '0';
+  }, 4000);
+}
+</script>
+</body>
+</html>
